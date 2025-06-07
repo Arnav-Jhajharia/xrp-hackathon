@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Alert, StyleSheet } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Clipboard from 'expo-clipboard';
-import { Wallet } from 'xrpl';
+import { Wallet, Client } from 'xrpl';
 import { gql, useQuery, useMutation } from '@apollo/client';
 import {
   Layout,
@@ -53,7 +53,10 @@ export default function OnboardXRPL() {
   // Create a brand‐new wallet
   const createNewWallet = useCallback(async () => {
     try {
-      const w = Wallet.generate();
+      const client = new Client('wss://s.altnet.rippletest.net:51233');
+      await client.connect();
+      const { wallet: w } = await client.fundWallet();
+      console.log("Wallet", w);
       setNewSeed(w.seed);
       setShowSeedModal(true);
       await SecureStore.setItemAsync('xrplSeed', w.seed, {
