@@ -226,14 +226,17 @@ export default function OnboardXRPL() {
         // prevent closing by outside tap
         onBackdropPress={() => {}}
       >
-        <Card disabled header={() => <Text category='h6'>Save Your Seed</Text>}>
+        <Card disabled style={styles.card} header={() => <Text category='h6'>Save Your Seed</Text>}>
           <Text category='s1' style={{ marginBottom: 8 }}>
             Your secret seed. Save it now. You will only see this once.
           </Text>
           <Text selectable style={styles.seed}>
             {newSeed}
           </Text>
-          <Button style={styles.button} onPress={() => Clipboard.setStringAsync(newSeed)}>
+          <Button style={styles.button} onPress={async () => {
+            await Clipboard.setStringAsync(newSeed);
+            Alert.alert('Copied', 'Seed copied to clipboard');
+          }}>
             Copy to Clipboard
           </Button>
           <Button style={styles.button} onPress={() => setShowSeedModal(false)}>

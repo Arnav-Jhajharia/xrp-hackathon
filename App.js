@@ -15,6 +15,8 @@ import { InMemoryCache } from '@apollo/client/cache';
 import { ApolloClient } from '@apollo/client';
 import { useAuth } from './auth/AuthProvider';
 import OnboardXRPL from './screens/OnboardXRPL';
+import AppNavigator from './navigation/navigationContainer';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 
 
@@ -41,12 +43,15 @@ export default function App() {
     <>
      <IconRegistry icons={EvaIconsPack} />
       <ApplicationProvider {...eva} theme={eva.light}>
+      <SafeAreaProvider>
         <AuthProvider>
+  
           <ApolloWrapper>
-            <HomeScreen />
-            <OnboardXRPL />
-          </ApolloWrapper>
+           <AppNavigator />
+          </ApolloWrapper> 
+         
         </AuthProvider>
+        </SafeAreaProvider>
       </ApplicationProvider>
     </>
   );
