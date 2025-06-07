@@ -1,10 +1,17 @@
 {
   "expo": {
-    "scheme": "acme",
-    "plugins": [
-      "expo-router"
-    ],
     "name": "xrp-hackathon",
-    "slug": "xrp-hackathon"
+    "slug": "xrp-hackathon",
+    "scheme": "xrp-hackathon",
+    "android": {
+      "package": "com.anonymous.xrphackathon",
+      "scheme": "xrp-hackathon"
+    },
+    "plugins": [
+      "expo-secure-store"
+    ],
+    "ios": {
+      "bundleIdentifier": "com.anonymous.xrphackathon"
+    }
   }
 }
