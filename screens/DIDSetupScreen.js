@@ -1,11 +1,9 @@
-
-// screens/DIDSetupScreen.js
-
+// DIDSetupScreen.js
 import React, { useEffect, useState } from 'react';
-import { Buffer } from 'buffer'; // ensure Buffer is available in React Native
+import { StyleSheet, View } from 'react-native';
+import { Buffer } from 'buffer';
 import * as SecureStore from 'expo-secure-store';
 import { Wallet, Client } from 'xrpl';
-import { gql, useMutation } from '@apollo/client';
 import {
   Layout,
   Card,
@@ -14,55 +12,44 @@ import {
   Spinner,
 } from '@ui-kitten/components';
 
-const SUBMIT_DID = gql`
-  mutation SubmitDID($txBlob: String!) {
-    submitDID(txBlob: $txBlob) {
-      transactionHash
-      ledgerIndex
-    }
-  }
-`;
+// Replace with your backend’s address
+const API_BASE = 'http://localhost:3001';
 
-export default function DIDSetupScreen() {
-  const [seed, setSeed]           = useState(null);
-  const [busy, setBusy]           = useState(false);
-  const [result, setResult]       = useState(null);
-  const [errorMessage, setError]  = useState(null);
+export default function DIDSetupScreen({ navigation }) {
+  const [seed, setSeed] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [didRecord, setDidRecord] = useState(null);
+  const [errorMessage, setError] = useState(null);
 
-  const [submitDID] = useMutation(SUBMIT_DID, {
-    onCompleted: (data) => {
-      setResult(data.submitDID);
-      setError(null);
-      setBusy(false);
-    },
-    onError: (err) => {
-      setError(err.message);
-      setBusy(false);
-    },
-  });
 
-  // Load the XRPL seed from secure storage on mount
+  // Load XRPL seed
   useEffect(() => {
-    SecureStore.getItemAsync('xrplSeed').then(s => setSeed(s));
+
+    SecureStore.getItemAsync('xrplSeed')
+      .then(s => setSeed(s))
+      .catch(err => console.error('Error loading seed:', err));
   }, []);
+
+  // Fetch existing DID
+  useEffect(() => {
+    if (!seed) return;
+    const address = Wallet.fromSeed(seed).classicAddress;
+    fetch(`${API_BASE}/did/${address}`)
+      .then(res => res.ok ? res.json() : Promise.reject())
+      .then(rec => setDidRecord(rec))
+      .catch(() => {});
+  }, [seed]);
 
   const handleCreateDID = async () => {
     if (!seed) {
-      return setError('No wallet seed found. Please onboard your wallet first.');
+      setError('No wallet seed found. Onboard your wallet first.');
+      return;
     }
-
     setBusy(true);
     setError(null);
-    setResult(null);
-
     try {
-      // Rehydrate wallet
       const wallet = Wallet.fromSeed(seed);
-
-      // Build minimal DID Document
       const did = `did:xrpl:testnet:${wallet.classicAddress}`;
-      console.log(wallet.classicAddress);
-      console.log(wallet.publicKey);
       const doc = {
         id: did,
         verificationMethod: [{
@@ -73,87 +60,83 @@ export default function DIDSetupScreen() {
         }],
         authentication: [`${did}#key-1`],
       };
-      console.log(doc);
-      // Prepare, sign, and get tx_blob locally
+      // store to backend
+      let res = await fetch(`${API_BASE}/did`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ did, document: doc }),
+      });
+      if (!res.ok) throw new Error('Failed to store DID');
+      // fetch saved record
+      res = await fetch(`${API_BASE}/did/${wallet.classicAddress}`);
+      if (!res.ok) throw new Error('Failed to fetch saved DID');
+      const saved = await res.json();
+      setDidRecord(saved);
+      // prepare on-ledger transaction
       const client = new Client('wss://s.altnet.rippletest.net:51233');
       await client.connect();
-
       const tx = {
         TransactionType: 'DIDSet',
-        Account:         wallet.classicAddress,
-        DID:             doc.id,
-        Properties:      Buffer.from(JSON.stringify(doc), 'utf8').toString('hex'),
+        Account: wallet.classicAddress,
+        DID: did,
+        URI: saved.uri ? Buffer.from(saved.uri).toString('hex') : undefined,
+        Data: saved.hex || undefined,
       };
-
       const prepared = await client.autofill(tx);
-      const signed   = wallet.sign(prepared);
+      const { tx_blob } = wallet.sign(prepared);
       await client.disconnect();
-
-      
-      console.log(signed);
-      // Submit only the signed blob to your backend
-      submitDID({ variables: { txBlob: signed.tx_blob } });
-
+      // navigate with tx_blob
+      navigation.navigate('DataSetup', { txBlob: tx_blob });
     } catch (err) {
+      console.error('handleCreateDID error:', err);
       setError(err.message);
+    } finally {
       setBusy(false);
     }
   };
 
   return (
     <Layout style={styles.container}>
-      <Card style={styles.card} header={() => <Text category='h6'>Create Your On-Chain Identity</Text>}>
+      <Text category='h1' style={styles.title}>fIDent</Text>
+      <Text category='s1' style={styles.subtitle}>On-Chain Identity Setup</Text>
+      <Card style={styles.card}>
         {busy ? (
-          <Spinner size='giant' />
-        ) : result ? (
-          <>
-            <Text category='s1' status='success'>✅ DID Published!</Text>
-            <Text category='p1' selectable style={styles.text}>
-              {`did:xrpl:testnet:${Wallet.fromSeed(seed).classicAddress}`}
-            </Text>
-            <Text category='c1' style={styles.text}>
-              Tx Hash: {result.transactionHash}
-            </Text>
-            <Button style={styles.button} onPress={() => setResult(null)}>
-              Create Again
-            </Button>
-          </>
+          <View style={styles.centerContent}>
+            <Spinner size='large'/>
+            <Text appearance='hint' style={styles.marginTop}>Working…</Text>
+          </View>
+        ) : didRecord ? (
+          <View style={styles.centerContent}>
+            <Text category='h6' status='success' style={styles.success}>✅ DID Stored!</Text>
+            <Text category='p1' selectable style={styles.didText}>{didRecord.did}</Text>
+            {didRecord.uri && <Text category='c1'>URI: {didRecord.uri}</Text>}
+            <Button style={[styles.button, styles.primary]} onPress={() => navigation.navigate('DataSetup')}>Proceed</Button>
+          </View>
         ) : (
-          <Button style={styles.button} onPress={handleCreateDID}>
-            Create My Identity
-          </Button>
+          <View style={styles.centerContent}>
+            <Text category='s1'>Create your on-chain DID to get started.</Text>
+            <Button style={[styles.button, styles.primary]} onPress={handleCreateDID}>Create My Identity</Button>
+          </View>
         )}
-
-        {errorMessage && (
-          <Text status='danger' style={styles.error}>
-            {errorMessage}
-          </Text>
-        )}
+        {errorMessage && <Text status='danger' style={styles.error}>{errorMessage}</Text>}
       </Card>
     </Layout>
   );
 }
 
-const styles = {
-  container: {
-    flex:            1,
-    justifyContent:  'center',
-    alignItems:      'center',
-    padding:         16,
-    backgroundColor: '#FFF',
-  },
+const styles = StyleSheet.create({
+  container: { flex:1, justifyContent:'center', alignItems:'center', backgroundColor:'#f0f3f5', padding:16 },
+  title: { marginBottom:8, fontWeight:'bold', color:'#3366FF' },
+  subtitle: { marginBottom:24, color:'#555' },
   card: {
-    width:   '100%',
-    padding: 16,
+    width:'90%', maxWidth:360, borderRadius:12, padding:20, backgroundColor:'#fff',
+    shadowColor:'#000', shadowOffset:{ width:0, height:4 }, shadowOpacity:0.1, shadowRadius:8, elevation:5,
   },
-  button: {
-    marginTop: 16,
-  },
-  text: {
-    marginTop: 12,
-  },
-  error: {
-    marginTop: 16,
-    textAlign: 'center',
-  },
-};
+  centerContent: { alignItems:'center' },
+  didText: { fontFamily:'monospace', marginVertical:12 },
+  success: { marginBottom:12, textAlign:'center' },
+  button: { marginTop:20, width:'100%' },
+  primary: { backgroundColor:'#3366FF' },
+  error: { marginTop:16, textAlign:'center' },
+  marginTop: { marginTop:16 }
+});

@@ -2,6 +2,7 @@
   "dependencies": {
     "@apollo/client": "^3.13.8",
     "@eva-design/eva": "^2.2.0",
+    "@react-navigation/bottom-tabs": "^7.3.14",
     "@react-navigation/native": "^7.1.10",
     "@react-navigation/native-stack": "^7.3.14",
     "@ui-kitten/components": "^5.3.1",
@@ -18,16 +19,19 @@
     "graphql": "^16.11.0",
     "jwt-decode": "2.2.0",
     "lottie-react-native": "7.2.2",
+    "nft.storage": "^7.2.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.1",
     "react-native-get-random-values": "~1.11.0",
-    "react-native-safe-area-context": "^5.4.0",
+    "react-native-safe-area-context": "^5.4.1",
     "react-native-screens": "^4.11.1",
     "react-native-svg": "15.11.2",
     "react-native-url-polyfill": "^2.0.0",
     "react-native-web": "^0.20.0",
-    "xrpl": "^4.2.5"
+    "web3.storage": "^4.5.5",
+    "xrpl": "^4.2.5",
+    "@expo/vector-icons": "^14.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.19.3"
@@ -40,5 +44,10 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web"
+  },
+  "overrides": {
+    "react-native-eva-icons": {
+      "react": "19.0.0"
+    }
   }
 }
